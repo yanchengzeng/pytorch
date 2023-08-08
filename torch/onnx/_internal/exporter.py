@@ -89,6 +89,51 @@ class OnnxRegistry:
     fixed opset version. It supports registering custom onnx-script functions and for
     dispatcher to dispatch calls to the appropriate function.
 
+    Example::
+
+        >>> # xdoctest: +SKIP("RuntimeError: Decorator script does not work on dynamically compiled function foo_onnx.")
+        >>> import torch
+        >>> import torch.onnx
+        >>> from torch._custom_op import impl as custom_op
+        >>> import onnxscript
+        ...
+        >>> # Step 1: Register PyTorch custom op
+        >>> @custom_op.custom_op("mylibrary::foo_op")
+        >>> def foo_op(x: torch.Tensor) -> torch.Tensor:
+        ...     ...
+        ...
+        >>> @foo_op.impl_abstract()
+        >>> def foo_op_impl_abstract(x):
+        ...     return torch.empty_like(x)
+        ...
+        >>> @foo_op.impl("cpu")
+        >>> def foo_op_impl(x):
+        ...     return x + 1
+        ...
+        >>> torch._dynamo.allow_in_graph(foo_op)
+        ...
+        >>> # Step 2: Use the custom op in torch.nn.Module/function
+        >>> class MyLibrary(torch.nn.Module):
+        ...     def forward(self, x, y, z):
+        ...         return foo_op(x) - y + z
+        ...
+        >>> x = torch.randn(3)
+        >>> y = torch.randn(3)
+        >>> z = torch.randn(3)
+        ...
+        >>> # Step 3: Write a OnnxFunction to represent the custom op
+        >>> custom_opset = onnxscript.values.Opset(domain="MyLibrary", version=1)
+        >>> @onnxscript.script()
+        >>> def foo_onnx(x):
+        ...     return custom_opset.CustomOp(x)
+        ...
+        >>> # Step 4: Register the PyTorch custom op and OnnxFunction to the registry
+        >>> registry = torch.onnx.OnnxRegistry()
+        >>> registry.register_op(foo_onnx, namespace='mylibrary', op_name="foo_op")
+        ...
+        >>> # Step 5: Export the model
+        >>> _ = torch.onnx.dynamo_export(MyLibrary(), x, y, z, export_options=torch.onnx.ExportOptions(onnx_registry=registry))
+
     """
 
     def __init__(self) -> None:

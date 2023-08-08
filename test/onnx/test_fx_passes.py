@@ -58,6 +58,7 @@ class TestFxPasses(common_utils.TestCase):
         ), f"Expected all names to be unique, got {nodes}"
 
     def test_onnx_dynamo_export_raises_when_model_contains_unsupported_fx_nodes(self):
+        # TODO: torch._custom_op doesn't support from __future__ import annotations
         @custom_op.custom_op("mylibrary::foo_op")
         def foo_op(x: torch.Tensor) -> torch.Tensor:
             ...
