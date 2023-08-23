@@ -79,9 +79,6 @@ def mps_ops_grad_modifier(ops):
         'aminmax': [torch.float32, torch.float16],
         'polar': [torch.float32],
 
-        # Correctness issues
-        'atanh': [torch.float32],
-
         # Random output
         'exponential': [torch.float16, torch.float32],
 
@@ -316,7 +313,7 @@ def mps_ops_modifier(ops):
         'square': [torch.bool, torch.int16, torch.int32, torch.int64, torch.uint8, torch.int8],
 
         # cpu not giving nan for x/0.0
-        'atan2': [torch.bool, torch.float16, torch.int16, torch.int32, torch.int64, torch.uint8, torch.int8],
+        'atan2': [torch.bool, torch.int16, torch.int32, torch.int64, torch.uint8, torch.int8],
     }
 
     MACOS_BEFORE_13_3_XFAILLIST = {
@@ -325,7 +322,7 @@ def mps_ops_modifier(ops):
         'cdist': [torch.float32],
 
         # CPU Error: cpu not giving nan for x/0.0
-        'atan2': [torch.bool, torch.float16, torch.int16, torch.int32, torch.int64, torch.uint8, torch.int8],
+        'atan2': [torch.bool, torch.int16, torch.int32, torch.int64, torch.uint8, torch.int8],
 
         # test blow pass on macOS 12 as it falls back to cpu
         # Argsort case using duplicate indices (undefined behaviour):
@@ -612,6 +609,7 @@ def mps_ops_modifier(ops):
         # Unsupported dtypes
         'dot': [torch.int64],
         'index_add': [torch.int64],
+        'histc': [torch.float16],
         'log1p': [torch.int64],
         'sigmoid': [torch.int64],
         'atan2': [torch.int64],
@@ -10602,7 +10600,8 @@ class TestConsistency(TestCaseMPS):
         'nn.functional.max_pool2d',
         'nn.functional.gelu',
         'nn.functional.glu',
-
+        'cross', 'linalg.cross',
+        'cumprod',
         # for macOS 12
         'masked.normalize', 'masked.sum', 'masked.var',
         'outer',
