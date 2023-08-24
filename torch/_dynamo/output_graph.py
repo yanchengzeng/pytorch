@@ -1079,7 +1079,6 @@ class OutputGraph(Checkpointable[OutputGraphState]):
             )
             unimplemented_with_warning(e, self.root_tx.f_code, msg)
         except Exception as e:
-            breakpoint()
             if (
                 e.args[0] == "Cannot convert symbols to int"
                 or isinstance(e, GuardOnDataDependentSymNode)
