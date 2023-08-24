@@ -1,5 +1,6 @@
 # Owner(s): ["module: inductor"]
 import copy
+import os
 import unittest
 
 import torch
@@ -774,6 +775,37 @@ class TestPaternMatcher(TestCase):
         # hit the view path
         _, (code) = run_and_get_code(fn2, args[0], args[1], args[2])
         FileCheck().check_not("extern_kernels.addmm(").run(code[0])
+
+    def test_match_equivalent_function_invocations(self):
+        # pad_mm.py only registered `addmm_pattern` which explicitly passes in alpha and beta,
+        # since they have default values, we should also match the equivalent invocations like
+        # the following two cases.
+        @torch.compile()
+        def f1(inp, x, y):
+            return torch.ops.aten.addmm(inp, x, y)
+
+        @torch.compile()
+        def f2(inp, x, y):
+            return torch.ops.aten.addmm(inp, x, y, alpha=1, beta=1)
+
+        inps = [torch.rand([20]), torch.rand([20, 20]), torch.rand([20, 20])]
+        inps = [x.to(device="cuda") for x in inps]
+
+        for fn in [f1, f2]:
+            with unittest.mock.patch.dict(
+                os.environ, {"TORCHINDUCTOR_PATTERN_MATCH_DEBUG": "addmm"}
+            ):
+                with self.assertLogs(
+                    logger="torch._inductor.pattern_matcher", level="WARNING"
+                ) as logs:
+                    fn(*inps)
+                    self.assertEqual(
+                        sum(
+                            msg.find("addmm(arg0_1, arg1_1, arg2_1) Match(...") != -1
+                            for msg in logs.output
+                        ),
+                        2,
+                    )
 
 
 if __name__ == "__main__":
