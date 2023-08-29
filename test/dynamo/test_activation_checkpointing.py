@@ -12,7 +12,7 @@ import torch.utils.checkpoint
 from functorch.compile import min_cut_rematerialization_partition
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.testing import CompileCounterWithBackend
-from torch._higher_order_ops.wrap import handle_activation_checkpoint
+from torch._higher_order_ops.wrap import tag_activation_checkpoint
 from torch.testing._internal.inductor_utils import HAS_CUDA
 from torch.utils.checkpoint import checkpoint, context_fn_gen
 
@@ -386,7 +386,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnt.frame_count, 1)
         self.assertEqual(len(cnt.graphs), 1)
 
-        wrap_node = find_first_node(cnt.graphs[0], handle_activation_checkpoint)
+        wrap_node = find_first_node(cnt.graphs[0], tag_activation_checkpoint)
         # one for checkpoint, and 3 for x, y, z
         self.assertEqual(len(wrap_node.args), 4)
 
@@ -420,7 +420,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(result.shape, expected.shape)
         self.assertEqual(cnt.frame_count, 2)
         self.assertEqual(len(cnt.graphs), 2)
-        wrap_node = find_first_node(cnt.graphs[0], handle_activation_checkpoint)
+        wrap_node = find_first_node(cnt.graphs[0], tag_activation_checkpoint)
         self.assertEqual(len(wrap_node.args), 3)
 
     def test_compile_selective_checkpoint_gemm_only(self):
@@ -570,8 +570,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             )
             self._validate(fn, backend, x, y)
 
-    # TODO(yf225): after Brian's mode reordering stack lands, we will enable this test
-    def DISABLED_test_compile_selective_checkpoint_inplace_op(self):
+    def test_compile_selective_checkpoint_inplace_op(self):
         def selective_checkpointing_context_fn():
             no_recompute_list = [
                 torch.ops.aten.mm.default,
@@ -620,8 +619,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             ):
                 self._validate(fn, backend, x, y)
 
-    # TODO(yf225): after Brian's mode reordering stack lands, we will enable this test
-    def DISABLED_test_compile_selective_checkpoint_random_op(self):
+    def test_compile_selective_checkpoint_random_op(self):
         def selective_checkpointing_context_fn():
             no_recompute_list = [
                 torch.ops.aten.mm.default,
@@ -632,7 +630,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             )
 
         def gn(x, y):
-            return torch.sigmoid(torch.matmul(torch.matmul(x, y), y)).bernoulli()
+            return torch.sigmoid(torch.matmul(torch.matmul(torch.bernoulli(torch.sigmoid(x)), y), y))
 
         def fn(x, y):
             return torch.utils.checkpoint.checkpoint(
@@ -648,7 +646,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
 
         fw_compiler = functools.partial(
             count_ops,
-            freqs=[2, 1],
+            freqs=[2, 2],
             ops=[torch.ops.aten.mm.default, torch.ops.aten.sigmoid.default],
         )
         bw_compiler = functools.partial(
@@ -662,11 +660,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
                 bw_compiler=bw_compiler,
                 partition_fn=min_cut_rematerialization_partition,
             )
-            with self.assertRaisesRegex(
-                AssertionError,
-                "Random ops are not supported in selective checkpointing region under torch.compile",
-            ):
-                self._validate(fn, backend, x, y)
+            self._validate(fn, backend, x, y)
 
     def test_compile_selective_checkpoint_invalid_context(self):
         def gn(x, y):

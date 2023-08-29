@@ -272,7 +272,10 @@ class TorchHigherOrderOperatorVariable(VariableTracker):
             return AutogradFunctionMethodHigherOrderVariable(value, source, **kwargs)
         elif value.__name__ == "wrap":
             return WrapHigherOrderVariable(value, source, **kwargs)
-        elif value.__name__ in ("handle_activation_checkpoint",):
+        elif value.__name__ in (
+            "wrap_activation_checkpoint",
+            "tag_activation_checkpoint",
+        ):
             return CheckpointHigherOrderVariable(value, source, **kwargs)
         elif value.__name__ == "_export_tracepoint":
             return ExportTracepointHigherOrderVariable(value, source, **kwargs)
@@ -1110,14 +1113,14 @@ class CheckpointHigherOrderVariable(WrapHigherOrderVariable):
     def call_function(
         self, tx, args: List[VariableTracker], kwargs: Dict[str, VariableTracker]
     ) -> VariableTracker:
-        from torch._higher_order_ops.wrap import HandleActivationCheckpoint
+        from torch._higher_order_ops.wrap import TagActivationCheckpoint
         from .builder import wrap_fx_proxy
 
         if "context_fn" in kwargs:
             context_fn = kwargs.pop("context_fn")
             self.value.context_fn = context_fn.fn
 
-        checkpoint_kwargs, gmod_kwargs = HandleActivationCheckpoint.divide_kwargs(
+        checkpoint_kwargs, gmod_kwargs = TagActivationCheckpoint.divide_kwargs(
             kwargs
         )
 

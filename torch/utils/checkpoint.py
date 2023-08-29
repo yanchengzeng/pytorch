@@ -1154,10 +1154,6 @@ class _CachingTorchDispatchMode(TorchDispatchMode):
             "In-place ops are not supported in selective checkpointing region under torch.compile. "
             + f"Found in-place ops: {func}."
         )
-        assert torch.Tag.nondeterministic_seeded not in func.tags, (
-            "Random ops are not supported in selective checkpointing region under torch.compile. "
-            + f"Found random ops: {func}."
-        )
         if func in _ignored_ops:
             return func(*args, **kwargs)
         if should_not_recompute:
@@ -1292,6 +1288,11 @@ def _checkpoint_without_reentrant_generator(
         context_fn(Callable, optional): A callable returning a tuple of two
             context managers. The function and its recomputation will be run
             under the first and second context managers respectively.
+            This is useful e.g. for implementing selective checkpointing.
+            Integration with torch.compile is currently experimental.
+            When this is used to implement selective checkpointing and used
+            with torch.compile, in-place ops (e.g. ``torch.relu_``) is not allowed
+            in checkpointed region.
         determinism_check(str, optional): A string specifying the determinism
             check to perform. By default it is set to ``"default"`` which
             compares the shapes, dtypes, and devices of the recomputed tensors
