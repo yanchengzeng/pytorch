@@ -415,8 +415,7 @@ def checkpoint(
             This argument is only supported if ``use_reentrant=False``.
             This is useful e.g. for implementing selective checkpointing.
             When selective checkpointing is used with torch.compile,
-            random ops (e.g. ``torch.dropout``) and in-place ops (e.g. ``torch.relu_``)
-            are not allowed in checkpointed region.
+            in-place ops (e.g. ``torch.relu_``) is not allowed in checkpointed region.
         determinism_check(str, optional): A string specifying the determinism
             check to perform. By default it is set to ``"default"`` which
             compares the shapes, dtypes, and devices of the recomputed tensors

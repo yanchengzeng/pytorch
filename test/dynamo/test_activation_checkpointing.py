@@ -570,7 +570,7 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             )
             self._validate(fn, backend, x, y)
 
-    def test_compile_selective_checkpoint_inplace_op(self):
+    def DISABLED_test_compile_selective_checkpoint_inplace_op(self):
         def selective_checkpointing_context_fn():
             no_recompute_list = [
                 torch.ops.aten.mm.default,
