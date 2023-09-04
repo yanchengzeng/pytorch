@@ -7,6 +7,7 @@ from importlib import import_module
 import torch
 
 import torch._dynamo.test_case
+import torch._dynamo.config
 import torch._functorch.config
 import torch.utils.checkpoint
 from functorch.compile import min_cut_rematerialization_partition

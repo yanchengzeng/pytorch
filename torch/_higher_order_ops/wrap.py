@@ -4,6 +4,7 @@ import logging
 import torch
 from torch._ops import HigherOrderOperator
 from torch.utils.checkpoint import checkpoint, uid
+import torch._dynamo.config
 
 log = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ class TagActivationCheckpoint(HigherOrderOperator):
         from torch.fx import Interpreter
         if self.context_fn is not None:
             assert (
-                _experimental_support_context_fn_in_torch_utils_checkpoint,
+                torch._dynamo.config._experimental_support_context_fn_in_torch_utils_checkpoint,
                 "Passing context_fn to torch.utils.checkpoint is currently not supported under torch.compile"
             )
             log.warning("""
