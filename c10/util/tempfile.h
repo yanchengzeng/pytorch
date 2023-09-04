@@ -24,7 +24,9 @@ namespace stdfs = std::experimental::filesystem;
 #include <unistd.h>
 #else // defined(_WIN32)
 #include <Windows.h>
+#include <fcntl.h>
 #include <fileapi.h>
+#include <io.h>
 #endif // defined(_WIN32)
 
 namespace c10 {
@@ -92,6 +94,10 @@ struct TempFile {
       if (fd >= 0) {
         close(fd);
       }
+#else
+      if (fd >= 0) {
+        _close(fd);
+      }
 #endif
     }
   }
@@ -145,7 +151,17 @@ inline std::optional<TempFile> try_make_tempfile(
     return std::nullopt;
   }
 #if defined(_WIN32)
-  return TempFile(std::move(filename));
+  int fd = -1;
+  auto err = _sopen_s(
+      &fd,
+      filename.c_str(),
+      _O_CREAT | _O_TEMPORARY | _O_EXCL | _O_BINARY | _O_RDWR,
+      _SH_DENYNO,
+      _S_IREAD | _S_IWRITE);
+  if (err != 0) {
+    return std::nullopt;
+  }
+  return TempFile(std::move(filename), fd);
 #else
   const int fd = mkstemp(filename.data());
   if (fd == -1) {
