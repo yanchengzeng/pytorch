@@ -1126,9 +1126,7 @@ class CheckpointHigherOrderVariable(WrapHigherOrderVariable):
             context_fn = kwargs.pop("context_fn")
             self.value.context_fn = context_fn.fn
 
-        checkpoint_kwargs, gmod_kwargs = TagActivationCheckpoint.divide_kwargs(
-            kwargs
-        )
+        checkpoint_kwargs, gmod_kwargs = TagActivationCheckpoint.divide_kwargs(kwargs)
 
         # Here we use checkpoint_kwargs (and not gmod kwargs). gmod_kwargs are
         # already flattened above and managed inside the fx graph.

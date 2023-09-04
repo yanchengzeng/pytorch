@@ -1,13 +1,12 @@
 # Owner(s): ["module: dynamo"]
 import functools
 import unittest
-from contextlib import contextmanager
 from importlib import import_module
 
 import torch
+import torch._dynamo.config
 
 import torch._dynamo.test_case
-import torch._dynamo.config
 import torch._functorch.config
 import torch.utils.checkpoint
 from functorch.compile import min_cut_rematerialization_partition
@@ -414,7 +413,9 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         wrap_node = find_first_node(cnt.graphs[0], tag_activation_checkpoint)
         self.assertEqual(len(wrap_node.args), 3)
 
-    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._dynamo.config.patch(
+        "_experimental_support_context_fn_in_torch_utils_checkpoint", True
+    )
     @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_gemm_only(self):
         def selective_checkpointing_context_fn():
@@ -457,7 +458,9 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         )
         self._validate(fn, backend, x, y)
 
-    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._dynamo.config.patch(
+        "_experimental_support_context_fn_in_torch_utils_checkpoint", True
+    )
     @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_custom_rule(self):
         def _get_custom_policy(meta):
@@ -520,7 +523,9 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         )
         self._validate(fn, backend, x, y)
 
-    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._dynamo.config.patch(
+        "_experimental_support_context_fn_in_torch_utils_checkpoint", True
+    )
     @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_outplace_op(self):
         def selective_checkpointing_context_fn():
@@ -564,7 +569,9 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         )
         self._validate(fn, backend, x, y)
 
-    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._dynamo.config.patch(
+        "_experimental_support_context_fn_in_torch_utils_checkpoint", True
+    )
     @torch._functorch.config.patch("cse", True)
     def DISABLED_test_compile_selective_checkpoint_inplace_op(self):
         def selective_checkpointing_context_fn():
@@ -610,7 +617,9 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         )
         self._validate(fn, backend, x, y)
 
-    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._dynamo.config.patch(
+        "_experimental_support_context_fn_in_torch_utils_checkpoint", True
+    )
     @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_random_op(self):
         def selective_checkpointing_context_fn():
@@ -623,7 +632,9 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             )
 
         def gn(x, y):
-            return torch.sigmoid(torch.matmul(torch.matmul(torch.bernoulli(torch.sigmoid(x)), y), y))
+            return torch.sigmoid(
+                torch.matmul(torch.matmul(torch.bernoulli(torch.sigmoid(x)), y), y)
+            )
 
         def fn(x, y):
             return torch.utils.checkpoint.checkpoint(
@@ -654,7 +665,9 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         )
         self._validate(fn, backend, x, y)
 
-    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._dynamo.config.patch(
+        "_experimental_support_context_fn_in_torch_utils_checkpoint", True
+    )
     @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_invalid_context(self):
         def gn(x, y):

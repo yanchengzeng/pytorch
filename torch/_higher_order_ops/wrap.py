@@ -119,10 +119,8 @@ class TagActivationCheckpoint(HigherOrderOperator):
         import torch.fx.traceback as fx_traceback
         from torch.fx import Interpreter
         if self.context_fn is not None:
-            assert (
-                torch._dynamo.config._experimental_support_context_fn_in_torch_utils_checkpoint,
+            assert torch._dynamo.config._experimental_support_context_fn_in_torch_utils_checkpoint, \
                 "Passing context_fn to torch.utils.checkpoint is currently not supported under torch.compile"
-            )
             log.warning("""
 Detected that context_fn is passed to torch.utils.checkpoint under torch.compile.
 Please make sure the checkpointed region does not contain in-place ops (e.g. torch.relu_).
