@@ -29,7 +29,6 @@ class Wrap(HigherOrderOperator):
 
 wrap = Wrap()
 
-
 class WrapActivationCheckpoint(HigherOrderOperator):
     """
     This operator is used to wrap torch.utils.checkpoint. This avoids
@@ -63,7 +62,6 @@ class WrapActivationCheckpoint(HigherOrderOperator):
             return checkpoint(Interpreter(function).run, *args, **kwargs)
 
 wrap_activation_checkpoint = WrapActivationCheckpoint()
-
 
 class TagActivationCheckpoint(HigherOrderOperator):
     """

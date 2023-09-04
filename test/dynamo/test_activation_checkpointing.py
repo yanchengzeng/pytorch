@@ -45,16 +45,6 @@ def count_ops(
     return gm
 
 
-@contextmanager
-def _functorch_partitioner_use_cse():
-    prev_value = torch._functorch.config.cse
-    torch._functorch.config.cse = True
-    try:
-        yield
-    finally:
-        torch._functorch.config.cse = prev_value
-
-
 class _InvalidContext:
     def __init__(self):
         pass
@@ -423,6 +413,8 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         wrap_node = find_first_node(cnt.graphs[0], tag_activation_checkpoint)
         self.assertEqual(len(wrap_node.args), 3)
 
+    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_gemm_only(self):
         def selective_checkpointing_context_fn():
             no_recompute_list = [
@@ -457,14 +449,15 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             freq=4,
             op=torch.ops.aten.mm.default,
         )
-        with _functorch_partitioner_use_cse():
-            backend = aot_autograd(
-                fw_compiler=fw_compiler,
-                bw_compiler=bw_compiler,
-                partition_fn=min_cut_rematerialization_partition,
-            )
-            self._validate(fn, backend, x, y)
+        backend = aot_autograd(
+            fw_compiler=fw_compiler,
+            bw_compiler=bw_compiler,
+            partition_fn=min_cut_rematerialization_partition,
+        )
+        self._validate(fn, backend, x, y)
 
+    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_custom_rule(self):
         def _get_custom_policy(meta):
             no_recompute_list = [
@@ -519,14 +512,15 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             freqs_ge=[4],
             ops=[torch.ops.aten.mm.default],
         )
-        with _functorch_partitioner_use_cse():
-            backend = aot_autograd(
-                fw_compiler=fw_compiler,
-                bw_compiler=bw_compiler,
-                partition_fn=min_cut_rematerialization_partition,
-            )
-            self._validate(fn, backend, x, y)
+        backend = aot_autograd(
+            fw_compiler=fw_compiler,
+            bw_compiler=bw_compiler,
+            partition_fn=min_cut_rematerialization_partition,
+        )
+        self._validate(fn, backend, x, y)
 
+    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_outplace_op(self):
         def selective_checkpointing_context_fn():
             no_recompute_list = [
@@ -562,14 +556,15 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             freqs=[4, 0],
             ops=[torch.ops.aten.mm.default, torch.ops.aten.sigmoid.default],
         )
-        with _functorch_partitioner_use_cse():
-            backend = aot_autograd(
-                fw_compiler=fw_compiler,
-                bw_compiler=bw_compiler,
-                partition_fn=min_cut_rematerialization_partition,
-            )
-            self._validate(fn, backend, x, y)
+        backend = aot_autograd(
+            fw_compiler=fw_compiler,
+            bw_compiler=bw_compiler,
+            partition_fn=min_cut_rematerialization_partition,
+        )
+        self._validate(fn, backend, x, y)
 
+    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._functorch.config.patch("cse", True)
     def DISABLED_test_compile_selective_checkpoint_inplace_op(self):
         def selective_checkpointing_context_fn():
             no_recompute_list = [
@@ -607,18 +602,15 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             freqs=[4, 0],
             ops=[torch.ops.aten.mm.default, torch.ops.aten.sigmoid.default],
         )
-        with _functorch_partitioner_use_cse():
-            backend = aot_autograd(
-                fw_compiler=fw_compiler,
-                bw_compiler=bw_compiler,
-                partition_fn=min_cut_rematerialization_partition,
-            )
-            with self.assertRaisesRegex(
-                AssertionError,
-                "In-place ops are not supported in selective checkpointing region under torch.compile",
-            ):
-                self._validate(fn, backend, x, y)
+        backend = aot_autograd(
+            fw_compiler=fw_compiler,
+            bw_compiler=bw_compiler,
+            partition_fn=min_cut_rematerialization_partition,
+        )
+        self._validate(fn, backend, x, y)
 
+    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_random_op(self):
         def selective_checkpointing_context_fn():
             no_recompute_list = [
@@ -654,14 +646,15 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             freqs=[4, 0],
             ops=[torch.ops.aten.mm.default, torch.ops.aten.sigmoid.default],
         )
-        with _functorch_partitioner_use_cse():
-            backend = aot_autograd(
-                fw_compiler=fw_compiler,
-                bw_compiler=bw_compiler,
-                partition_fn=min_cut_rematerialization_partition,
-            )
-            self._validate(fn, backend, x, y)
+        backend = aot_autograd(
+            fw_compiler=fw_compiler,
+            bw_compiler=bw_compiler,
+            partition_fn=min_cut_rematerialization_partition,
+        )
+        self._validate(fn, backend, x, y)
 
+    @torch._dynamo.config.patch("_experimental_support_context_fn_in_torch_utils_checkpoint", True)
+    @torch._functorch.config.patch("cse", True)
     def test_compile_selective_checkpoint_invalid_context(self):
         def gn(x, y):
             return torch.sigmoid(torch.matmul(x, y)) * y
@@ -688,16 +681,15 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             freqs_ge=[2],
             ops=[torch.ops.aten.mm.default],
         )
-        with _functorch_partitioner_use_cse():
-            backend = aot_autograd(
-                fw_compiler=fw_compiler,
-                bw_compiler=bw_compiler,
-                partition_fn=min_cut_rematerialization_partition,
-            )
-            with self.assertRaisesRegex(
-                Exception, "must generate a tuple of two `TorchDispatchMode`s"
-            ):
-                self._validate(fn, backend, x, y)
+        backend = aot_autograd(
+            fw_compiler=fw_compiler,
+            bw_compiler=bw_compiler,
+            partition_fn=min_cut_rematerialization_partition,
+        )
+        with self.assertRaisesRegex(
+            Exception, "must generate a tuple of two `TorchDispatchMode`s"
+        ):
+            self._validate(fn, backend, x, y)
 
     @requires_cuda()
     def test_autocast_flash_attention(self):
