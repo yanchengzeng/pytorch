@@ -414,8 +414,6 @@ def checkpoint(
             under the first and second context managers respectively.
             This argument is only supported if ``use_reentrant=False``.
             This is useful e.g. for implementing selective checkpointing.
-            When selective checkpointing is used with torch.compile,
-            in-place ops (e.g. ``torch.relu_``) is not allowed in checkpointed region.
         determinism_check(str, optional): A string specifying the determinism
             check to perform. By default it is set to ``"default"`` which
             compares the shapes, dtypes, and devices of the recomputed tensors
@@ -1288,10 +1286,6 @@ def _checkpoint_without_reentrant_generator(
             context managers. The function and its recomputation will be run
             under the first and second context managers respectively.
             This is useful e.g. for implementing selective checkpointing.
-            Integration with torch.compile is currently experimental.
-            When this is used to implement selective checkpointing and used
-            with torch.compile, in-place ops (e.g. ``torch.relu_``) is not allowed
-            in checkpointed region.
         determinism_check(str, optional): A string specifying the determinism
             check to perform. By default it is set to ``"default"`` which
             compares the shapes, dtypes, and devices of the recomputed tensors
