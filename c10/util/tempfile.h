@@ -7,8 +7,11 @@
 #if __has_include(<version>)
 #include <version>
 #endif
-
 #if __has_include(<filesystem>) || ( defined(__cpp_lib_filesystem) && __cpp_lib_filesystem >= 201703L)
+#undef _LIBCPP_TYPE_VIS
+#define _LIBCPP_TYPE_VIS
+#undef _LIBCPP_INLINE_VISIBILITY
+#define _LIBCPP_INLINE_VISIBILITY
 #include <filesystem>
 namespace stdfs = std::filesystem;
 #else
