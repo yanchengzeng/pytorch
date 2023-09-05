@@ -1146,10 +1146,6 @@ class _CachingTorchDispatchMode(TorchDispatchMode):
         self.storage[func].append(out_detached)
 
     def _handle_compile_in_forward_ctx(self, should_not_recompute, func, args, kwargs):
-        assert not func._schema.is_mutable, (
-            "In-place ops are not supported in selective checkpointing region under torch.compile. "
-            + f"Found in-place ops: {func}."
-        )
         if func in _ignored_ops:
             return func(*args, **kwargs)
         if should_not_recompute:
