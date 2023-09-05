@@ -513,8 +513,8 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
             # The second mm may or may not be recomputed
             # (since it's decided by the partitioner),
             # so we use "greater than or equal" here.
-            freqs_ge=[4],
-            ops=[torch.ops.aten.mm.default],
+            freq_ge=4,
+            op=torch.ops.aten.mm.default,
         )
         backend = aot_autograd(
             fw_compiler=fw_compiler,
@@ -692,8 +692,8 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
         )
         bw_compiler = functools.partial(
             count_ops,
-            freqs_ge=[2],
-            ops=[torch.ops.aten.mm.default],
+            freq_ge=2,
+            op=torch.ops.aten.mm.default,
         )
         backend = aot_autograd(
             fw_compiler=fw_compiler,
