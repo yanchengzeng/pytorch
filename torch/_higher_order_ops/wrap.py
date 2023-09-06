@@ -139,6 +139,9 @@ Please make sure the checkpointed region does not contain in-place ops (e.g. tor
         else:
             gmod = self.tag_nodes(gmod)
             # Using interpreter allows preservation of metadata through torch.compile stack.
+            # TODO: We want to use the same `checkpoint(Interpreter(gmod).run, *args, **kwargs)` here
+            # as the `context_fn != None` case, but that depends on in-place op support in TorchDispatchMode + torch.compile.
+            # (for details on in-place op issue, run `test_compile_selective_checkpoint_inplace_op` unit test)
             with fx_traceback.preserve_node_meta():
                 return Interpreter(gmod).run(*args)
 
