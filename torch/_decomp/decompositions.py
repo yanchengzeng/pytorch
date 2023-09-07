@@ -4014,6 +4014,12 @@ def scaled_dot_product_flash_attention(
     )
 
 
+@register_decomposition(aten.resize)
+def resize(self: Tensor, size: List[torch.SymInt], *, memory_format: Optional[torch.memory_format] = None):
+    # aten::resize(Tensor self, SymInt[] size, *, MemoryFormat? memory_format=None) -> Tensor
+    return self.view(size).to(memory_format=memory_format)
+
+
 def register_inplace(aten_op, outplace_op):
     @register_decomposition(aten_op)
     def inplace_op(*args, **kwargs):
