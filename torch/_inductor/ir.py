@@ -5626,8 +5626,6 @@ class InPlaceCollectiveKernel(CollectiveKernel):
         return True
 
     def codegen_output(self, wrapper, output_name, input_names):
-        for x in input_names:
-            V.graph.never_reuse_buffers.add(x)
         if len(input_names) > 1:
             wrapper.writeline(f"{output_name} = [{','.join(input_names)}] ")
         else:
