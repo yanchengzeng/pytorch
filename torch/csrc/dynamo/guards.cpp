@@ -574,6 +574,145 @@ static struct PyModuleDef _module = {
     -1,
     _methods};
 
+class LeafGuard {
+ public:
+  virtual bool check(py::object value) = 0;
+  virtual ~LeafGuard() = default;
+  virtual std::string repr() const = 0;
+};
+
+class PythonLambdaGuard : public LeafGuard {
+  // This is a cop out for any leaf guard that is not yet written in C++. We can
+  // begin with all leaf guards being a PythonLambdaGuard and move them to a
+  // more specific Guard type one by one.
+
+ public:
+  // Saves the lambda function provided by the user. The lambda function
+  // represents the check_fn that will be triggered during cache lookup.
+  PythonLambdaGuard(py::object lambda) {
+    if (py::isinstance<py::function>(lambda)) {
+      _lambda = py::cast<py::function>(lambda);
+    } else {
+      throw py::type_error(
+          "PythonLambdaGuard expects a callable as its check_fn");
+    }
+  }
+
+  // Runs the lambda function with the current f_locals value.
+  bool check(py::object value) override {
+    return py::cast<bool>(_lambda(value));
+  }
+
+  std::string repr() const override {
+    return "PythonLambdaGuard";
+  }
+
+ private:
+  py::function _lambda;
+};
+
+class GuardAccessor {
+ public:
+  virtual ~GuardAccessor() = default;
+  virtual py::object access(py::object obj) const = 0;
+};
+
+class AttrGuardAccessor : public GuardAccessor {
+ public:
+  AttrGuardAccessor(py::str name) {
+    _attr_name = name;
+  }
+
+  bool equals(py::str name) const {
+    return _attr_name.equal(name);
+  }
+
+  py::object access(py::object obj) const override {
+    return py::getattr(obj, _attr_name);
+  }
+
+ private:
+  py::str _attr_name;
+};
+
+class ItemGuardAccessor : public GuardAccessor {
+ public:
+  ItemGuardAccessor(py::str name) {
+    _attr_name = name;
+  }
+
+  bool equals(py::str name) const {
+    return _attr_name.equal(name);
+  }
+
+  py::object access(py::object obj) const override {
+    // Is there a faster way to access? There is no py::getitem.
+    if (py::isinstance<py::dict>(obj)) {
+      return py::dict(obj)[_attr_name];
+    }
+    return py::getattr(py::getattr(obj, "__dict__"), _attr_name);
+  }
+
+ private:
+  py::str _attr_name;
+};
+
+class GuardManager;
+typedef std::pair<std::unique_ptr<GuardAccessor>, std::unique_ptr<GuardManager>>
+    ChildGuardType;
+class GuardManager {
+ public:
+  GuardManager() = default;
+  GuardManager(const GuardManager& m) = delete;
+  GuardManager& operator=(const GuardManager&) = delete;
+
+  void add_leaf_guard(std::unique_ptr<LeafGuard> leaf_guard) {
+    // GuardManager is now the owner of the leaf_guard
+    _leaf_guards.push_back(std::move(leaf_guard));
+  }
+
+  template <typename GuardAccessorT>
+  GuardManager* get_attr_guard_manager(py::str name) {
+    for (auto& child_guard : _child_guards) {
+      GuardAccessor* child_accessor = child_guard.first.get();
+
+      // Find the child accessor matching the new GuardAccessorT
+      auto maybe_attr_accessor = dynamic_cast<GuardAccessorT*>(child_accessor);
+      if (maybe_attr_accessor != nullptr) {
+        if (maybe_attr_accessor->equals(name)) {
+          auto& child_mananger = child_guard.second;
+          return child_mananger.get();
+        }
+      }
+    }
+
+    // Construct a new child manager
+    std::unique_ptr<GuardAccessorT> accessor =
+        std::make_unique<GuardAccessorT>(name);
+    std::unique_ptr<GuardManager> mananger = std::make_unique<GuardManager>();
+    auto child_guard = std::make_pair(std::move(accessor), std::move(mananger));
+    _child_guards.emplace_back(std::move(child_guard));
+    return _child_guards.back().second.get();
+  }
+
+  bool check(py::object value) {
+    bool result = true;
+    for (const auto& guard : _leaf_guards) {
+      result &= guard->check(value);
+    }
+    for (const auto& child_guard : _child_guards) {
+      auto& accessor = child_guard.first;
+      auto& manager = child_guard.second;
+      result &= manager->check(accessor->access(value));
+    }
+    return result;
+  }
+
+ private:
+  std::vector<std::unique_ptr<LeafGuard>> _leaf_guards;
+  std::vector<ChildGuardType> _child_guards;
+};
+
 } // namespace
 
 PyObject* torch_c_dynamo_guards_init() {
@@ -622,5 +761,34 @@ PyObject* torch_c_dynamo_guards_init() {
     return nullptr;
   }
 
+  auto py_m = py::handle(m).cast<py::module>();
+  py::class_<LeafGuard, std::unique_ptr<LeafGuard>>(py_m, "LeafGuard");
+
+  py::class_<PythonLambdaGuard, std::unique_ptr<PythonLambdaGuard>>(
+      py_m, "PythonLambdaGuard")
+      .def(py::init<py::object>())
+      .def("__call__", &PythonLambdaGuard::check)
+      .def("__repr__", &PythonLambdaGuard::repr);
+
+  py::class_<GuardManager, std::unique_ptr<GuardManager>>(py_m, "GuardManager")
+      .def(py::init<>())
+      .def("check", &GuardManager::check)
+      .def(
+          "add_lambda_guard",
+          [](GuardManager& self, py::object lambda) -> void {
+            self.add_leaf_guard(std::make_unique<PythonLambdaGuard>(lambda));
+          })
+      // the pointer is returned as a reference to avoid multiple deallocation
+      // of GuardManager
+      .def(
+          "__getattr__",
+          &GuardManager::get_attr_guard_manager<AttrGuardAccessor>,
+          py::return_value_policy::reference)
+      // the pointer is returned as a reference to avoid multiple deallocation
+      // of GuardManager
+      .def(
+          "__getitem__",
+          &GuardManager::get_attr_guard_manager<ItemGuardAccessor>,
+          py::return_value_policy::reference);
   return m;
 }
