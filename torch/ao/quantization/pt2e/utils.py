@@ -148,6 +148,8 @@ def fold_bn_weights_into_conv_node(
         eps_arg_index = 6
     elif bn_node.target == torch.ops.aten._native_batch_norm_legit.default:
         eps_arg_index = 7
+    elif bn_node.target == torch.ops.aten.cudnn_batch_norm.default:
+        eps_arg_index = 7
     else:
         raise ValueError("BN node target is unexpected ", bn_node.target)
     bn_eps = bn_args[eps_arg_index]
@@ -237,6 +239,12 @@ def get_aten_graph_module(
         kwargs,
     )
     aten_pattern.graph.eliminate_dead_code()
+    aten_pattern.recompile()
+    for n in aten_pattern.graph.nodes:
+        if n.target == torch.ops.aten._native_batch_norm_legit.default:
+            n.target = torch.ops.aten.cudnn_batch_norm.default
+        if n.target == torch.ops.aten._native_batch_norm_legit_no_training.default:
+            raise ValueError("Err got the no training bn op for some reason")
     aten_pattern.recompile()
     return aten_pattern
 
