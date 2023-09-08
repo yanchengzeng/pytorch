@@ -7,6 +7,7 @@ import logging
 import math
 import operator
 import os
+import platform
 import shutil
 import sys
 import tempfile
@@ -1064,3 +1065,7 @@ def is_dynamic(*args):
             raise TypeError(f"unexpected type for is_dynamic {type(t)}")
 
     return False
+
+
+def is_linux() -> bool:
+    return platform.system() == "Linux"
