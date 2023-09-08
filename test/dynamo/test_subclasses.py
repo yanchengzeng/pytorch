@@ -15,8 +15,6 @@ from torch._higher_order_ops.wrap import wrap
 
 from torch.fx.experimental.symbolic_shapes import DimDynamic, ShapeEnv
 
-from torch.fx.experimental.symbolic_shapes import DimDynamic, ShapeEnv
-
 
 class MockSubclass(torch.Tensor):
     @classmethod
@@ -437,6 +435,80 @@ class GraphModule(torch.nn.Module):
         self.assertEqual(curr_var_to_sources, expected_var_to_sources)
         self.assertEqual(lower_bound_str, expected_lower_bound)
         self.assertEqual(upper_bound_str, expected_upper_bound)
+
+    def test_recompile_with_symbool_inputs(self):
+        def f(pred: bool):
+            if pred:
+                return torch.ones([3, 4])
+            else:
+                return torch.ones([4, 3])
+
+        def test_recompilation(
+            f, x, sizes, exp_graphs, exp_frame_count, exp_shape_env_guards
+        ):
+            torch._dynamo.reset()
+            shape_env = ShapeEnv()
+            backend = torch._dynamo.testing.EagerAndRecordGraphs()
+            cnt = torch._dynamo.testing.CompileCounterWithBackend(backend)
+            f_cond = torch.compile(f, backend=cnt, fullgraph=True)
+            with torch._subclasses.fake_tensor.FakeTensorMode(
+                shape_env=shape_env
+            ) as fake_mode:
+                fake_inp = fake_mode.from_tensor(
+                    x, dynamic_dims=[DimDynamic.DYNAMIC for i in range(x.dim())]
+                )
+                for i, size in enumerate(sizes):
+                    pred = fake_inp.size(0) == size
+                    f_cond(pred)
+                    actual = normalize_gm(
+                        backend.graphs[exp_frame_count[i] - 1].print_readable(
+                            print_output=False
+                        )
+                    )
+                    actual_guard_str = [str(guard.expr) for guard in shape_env.guards]
+                    self.assertExpectedInline(actual, exp_graphs[i])
+                    self.assertEqual(cnt.frame_count, exp_frame_count[i])
+                    self.assertEqual(actual_guard_str, exp_shape_env_guards[i])
+
+        true_graph = """\
+class GraphModule(torch.nn.Module):
+    def forward(self):
+        ones = torch.ones([3, 4])
+        return (ones,)
+"""
+        false_graph = """\
+class GraphModule(torch.nn.Module):
+    def forward(self):
+        ones = torch.ones([4, 3])
+        return (ones,)
+"""
+        test_recompilation(
+            f,
+            torch.randn([3, 4]),
+            [3, 3, 4, 5],
+            exp_graphs=[true_graph, true_graph, false_graph, false_graph],
+            exp_frame_count=[1, 1, 2, 2],
+            exp_shape_env_guards=[
+                [],
+                ["Eq(s0, 3)"],
+                ["Eq(s0, 3)"],
+                ["Eq(s0, 3)"],
+            ],
+        )
+
+        test_recompilation(
+            f,
+            torch.randn([3, 4]),
+            [4, 5, 3, 3],
+            exp_graphs=[false_graph, false_graph, true_graph, true_graph],
+            exp_frame_count=[1, 1, 2, 2],
+            exp_shape_env_guards=[
+                [],
+                ["Ne(s0, 5)"],
+                ["Ne(s0, 5)", "Eq(s0, 3)"],
+                ["Ne(s0, 5)", "Eq(s0, 3)"],
+            ],
+        )
 
 
 if __name__ == "__main__":
