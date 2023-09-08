@@ -1206,6 +1206,15 @@ def library_paths(cuda: bool = False) -> List[str]:
                 # Note that it's also possible both don't exist (see
                 # _find_cuda_home) - in that case we stay with 'lib64'.
                 lib_dir = 'lib'
+                # This is a special treatment for Meta internal cuda-12 where all libs
+                # are in lib/cuda-12 and lib/cuda-12/stubs
+                for root, dirs, files in os.walk(_join_cuda_home(lib_dir)):
+                    if 'libcudart_static.a' in files:
+                        lib_dir = os.path.join(lib_dir, root)
+                        break
+                if lib_dir != 'lib':
+                    paths.append(_join_cuda_home(lib_dir))
+                    lib_dir = os.path.join(lib_dir, "stubs")
 
         paths.append(_join_cuda_home(lib_dir))
         if CUDNN_HOME is not None:

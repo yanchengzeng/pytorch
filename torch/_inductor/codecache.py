@@ -877,9 +877,16 @@ def get_include_and_linking_paths(
         # (later on, we copy the include paths from cpp_extensions into our remote dir)
         ipaths.append("include")
 
+    static_link_libs = ""
+    if aot_mode and config.is_fbcode():
+        # For Meta internal cuda-12, it is recommended to static link cudarrt
+        static_link_libs = " ".join(
+            ["-Wl,-Bstatic", "-lcudart_static", "-Wl,-Bdynamic"]
+        )
+
     ipaths = " ".join(["-I" + p for p in ipaths])
     lpaths = " ".join(["-L" + p for p in lpaths])
-    libs = " ".join(["-l" + p for p in libs])
+    libs = static_link_libs + " " + " ".join(["-l" + p for p in libs])
     return ipaths, lpaths, libs, macros
 
 
