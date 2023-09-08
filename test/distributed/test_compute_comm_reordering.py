@@ -68,16 +68,15 @@ class TestComputeCommReorderingMultiProc(DynamoDistributedMultiProcTestCase):
 
     @unittest.skipIf(not has_triton(), "Inductor+gpu needs triton and recent GPU arch")
     @skip_if_lt_x_gpu(2)
-    @patch.object(torch._inductor.config, "reorder_for_compute_comm_overlap", False)
+    @patch.object(torch._inductor.config, "reorder_for_compute_comm_overlap", True)
     # TODO: somehow inductor bg compile threads are causing hangs at exit with distributed work dtor
     @patch.object(torch._inductor.config, "compile_threads", 1)
     def test_sink_waits(self):
         def example(a, *, ranks):
             ar = _functional_collectives.all_reduce(a, "sum", ranks)
             b = torch.matmul(a, a)
-            c = torch.relu(a)
-            d = torch.matmul(c, c)
-            e = d + ar
+            d = torch.matmul(b, b)
+            e = d * ar
             return (e,)
 
         with _dynamo_dist_per_rank_init(self.rank, self.world_size):
@@ -96,7 +95,5 @@ class TestComputeCommReorderingMultiProc(DynamoDistributedMultiProcTestCase):
             #     .run(code)
 
             eager_out = example(*inputs, ranks=ranks)
-            print(f"eager_out: {eager_out}")
             inductor_out = compiled_fn(*inputs, ranks=ranks)
-            print(f"inductor_out: {inductor_out}")
             self.assertTrue(same(eager_out, inductor_out, tol=0.001))
